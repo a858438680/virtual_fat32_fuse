@@ -4,7 +4,12 @@
 #include <map>
 #include <stdexcept>
 #include <stdint.h>
+#include <sys/stat.h>
+#include <sys/statvfs.h>
 #include "fat32.h"
+
+typedef unsigned long DWORD;
+typedef unsigned char BYTE;
 
 namespace dev_io
 {
@@ -59,28 +64,26 @@ public:
 
     operator bool() const noexcept;
 
-    uint64_t open(const fat32::path &path, uint32_t create_disposition, uint32_t file_attr, bool &exist, bool &isdir);
-    void unlink(uint64_t fd);
-    bool rename(uint64_t fd, const fat32::path &newpath, bool replace);
-    fat32::dir_info opendir(const fat32::path &path);
+    int stat(const fat32::path &path, struct stat *stbuf);
+    int fstat(uint64_t fd, struct stat *stbuf);
+    int access(const fat32::path &path);
+    int opendir(const fat32::path &path, uint64_t *fh);
+    int readdir(uint64_t fd, fat32::dir_info &entries);
+    void closedir(uint64_t fd);
+    int open(const fat32::path &path, int flag, uint64_t *fh);
     void close(uint64_t fd);
-    uint32_t read(uint64_t fd, int64_t offset, uint32_t len, void *buf);
-    uint32_t write(uint64_t fd, int64_t offset, uint32_t len, const void *buf);
-    //void fstat(uint64_t fd, LPBY_HANDLE_FILE_INFORMATION statbuf);
-    void setattr(uint64_t fd, uint32_t attr);
-    //void settime(uint64_t fd, CONST FILETIME *CreationTime, CONST FILETIME *LastAccessTime, CONST FILETIME *LastWriteTime);
-    void setend(uint64_t fd, int64_t offset);
-    void setalloc(uint64_t fd, int64_t alloc);
-
-    fat32::dir_info opendir(uint64_t fd);
-    void get_disk_info(uint64_t *free_avilable, uint64_t *tot_size, uint64_t *tot_free);
+    int mknod(const fat32::path &path, mode_t mode);
+    int mkdir(const fat32::path &path, mode_t mode);
+    int unlink(const fat32::path &path);
+    int rmdir(const fat32::path &path);
+    int rename(const fat32::path &from, const fat32::path &to);
+    int truncate(const fat32::path &path, off_t offset);
+    int read(uint64_t fd, int64_t offset, uint32_t len, void *buf);
+    int write(uint64_t fd, int64_t offset, uint32_t len, const void *buf);
+    int statfs(struct statvfs *stbuf);
+    int utimens(const fat32::path &path, const struct timespec tv[2]);
     void flush();
     void clear();
-
-    uint32_t get_root_clus() const noexcept;
-    uint32_t get_vol_id() const noexcept;
-    uint32_t get_fat(uint32_t fat_no) const;
-    void set_fat(uint32_t fat_no, uint32_t value);
 
 private:
     static int32_t dev_read(int fd, uint64_t offset, uint32_t size, void *buf);
@@ -89,6 +92,11 @@ private:
     int32_t write_block(uint32_t block_no, const void *buf) const;
     int32_t read_clus(uint32_t clus_no, void *buf) const;
     int32_t write_clus(uint32_t clus_no, const void *buf) const;
+    uint32_t get_root_clus() const noexcept;
+    uint32_t get_vol_id() const noexcept;
+    uint32_t get_fat(uint32_t fat_no) const;
+    void set_fat(uint32_t fat_no, uint32_t value);
+
     void format(uint32_t tot_block, uint16_t block_size);
     void clac_info();
 
@@ -109,6 +117,7 @@ private:
     fat32::FSInfo_t FSInfo;
     std::vector<uint32_t> FAT_Table;
     std::set<uint64_t> open_file_table;
+    std::set<std::unique_ptr<fat32::file_node>> delete_file_table;
     std::unique_ptr<fat32::file_node> root;
     uint32_t tot_block;
     uint16_t block_size;

@@ -10,9 +10,6 @@
 #include <sys/stat.h>
 #include "dev_io.h"
 
-typedef unsigned long DWORD;
-typedef unsigned char BYTE;
-
 namespace dev_io
 {
 
@@ -123,40 +120,40 @@ dev_t::dev_t(const char *dev_name, uint32_t tot_block, uint16_t block_size)
     }
 }
 
-// dev_t::dev_t(const char *dev_name)
-//     : dev_img(-1), cleared(true)
-// {
-//     try
-//     {
-//         dev_img = ::open(dev_name, O_RDWR);
-//         if (dev_img == -1)
-//         {
-//             if (errno == ENOENT)
-//                 throw disk_error(disk_error::DISK_NOT_FOUND);
-//             else
-//                 throw disk_error(disk_error::DISK_OPEN_ERROR);
-//         }
-//         dev_read(dev_img, 0, sizeof(fat32::BPB_t), &BPB);
-//         if (BPB.Signature_word != 0xaa55)
-//         {
-//             throw disk_error(disk_error::DISK_SIGNATURE_ERROR);
-//         }
-//         dev_read(dev_img, BPB.BPB_FSInfo * BPB.BPB_BytsPerSec,
-//                  sizeof(fat32::FSInfo_t), &FSInfo);
-//         if (FSInfo.FSI_LeadSig != 0x41615252 || FSInfo.FSI_StrucSig != 0x61417272 ||
-//             FSInfo.FSI_TrailSig != 0xAA550000)
-//         {
-//             throw disk_error(disk_error::DISK_SIGNATURE_ERROR);
-//         }
-//         clac_info();
-//     }
-//     catch (disk_error &e)
-//     {
-//         if (dev_img != -1)
-//             ::close(dev_img);
-//         throw e;
-//     }
-// }
+dev_t::dev_t(const char *dev_name)
+    : dev_img(-1), cleared(true)
+{
+    try
+    {
+        dev_img = ::open(dev_name, O_RDWR);
+        if (dev_img == -1)
+        {
+            if (errno == ENOENT)
+                throw disk_error(disk_error::DISK_NOT_FOUND);
+            else
+                throw disk_error(disk_error::DISK_OPEN_ERROR);
+        }
+        dev_read(dev_img, 0, sizeof(fat32::BPB_t), &BPB);
+        if (BPB.Signature_word != 0xaa55)
+        {
+            throw disk_error(disk_error::DISK_SIGNATURE_ERROR);
+        }
+        dev_read(dev_img, BPB.BPB_FSInfo * BPB.BPB_BytsPerSec,
+                 sizeof(fat32::FSInfo_t), &FSInfo);
+        if (FSInfo.FSI_LeadSig != 0x41615252 || FSInfo.FSI_StrucSig != 0x61417272 ||
+            FSInfo.FSI_TrailSig != 0xAA550000)
+        {
+            throw disk_error(disk_error::DISK_SIGNATURE_ERROR);
+        }
+        clac_info();
+    }
+    catch (disk_error &e)
+    {
+        if (dev_img != -1)
+            ::close(dev_img);
+        throw e;
+    }
+}
 
 dev_t::~dev_t()
 {
@@ -262,33 +259,42 @@ void dev_t::format(uint32_t tot_block, uint16_t block_size)
     dev_write(dev_img, data_begin * block_size, BPB.BPB_SecPerClus * block_size, EmptySec.data());
 }
 
-// void dev_t::clac_info()
-// {
-//     FAT_Table.resize(BPB.BPB_FATSz32 * BPB.BPB_BytsPerSec / sizeof(uint32_t));
-//     for (uint32_t i = 0; i < BPB.BPB_FATSz32; ++i)
-//     {
-//         auto byte = i * BPB.BPB_BytsPerSec;
-//         dev_read(dev_img, (i + BPB.BPB_RsvdSecCnt) * BPB.BPB_BytsPerSec, BPB.BPB_BytsPerSec,
-//                  FAT_Table.data() + byte / sizeof(uint32_t));
-//     }
-//     tot_block = BPB.BPB_TotSec32;
-//     block_size = BPB.BPB_BytsPerSec;
-//     sec_per_clus = BPB.BPB_SecPerClus;
-//     clus_size = block_size * sec_per_clus;
-//     data_begin = BPB.BPB_RsvdSecCnt + BPB.BPB_NumFATs * BPB.BPB_FATSz32;
-//     count_of_cluster = (tot_block - data_begin) / sec_per_clus;
-//     // memset(&root_info, 0, sizeof(fat32::Entry_Info));
-//     // root_info.first_clus = get_root_clus();
-//     // root_info.info.dwFileAttributes = 0x10;
-//     // root_info.info.dwVolumeSerialNumber = get_vol_id();
-//     // ULARGE_INTEGER file_index;
-//     // file_index.QuadPart = get_root_clus();
-//     // root_info.info.nFileIndexHigh = file_index.HighPart;
-//     // root_info.info.nFileIndexLow = file_index.LowPart;
-//     // root_info.info.nNumberOfLinks = 2;
-//     root = open_file(nullptr, &root_info);
-//     open_file_table.insert((uint64_t)root.get());
-// }
+void dev_t::clac_info()
+{
+    FAT_Table.resize(BPB.BPB_FATSz32 * BPB.BPB_BytsPerSec / sizeof(uint32_t));
+    for (uint32_t i = 0; i < BPB.BPB_FATSz32; ++i)
+    {
+        auto byte = i * BPB.BPB_BytsPerSec;
+        dev_read(dev_img, (i + BPB.BPB_RsvdSecCnt) * BPB.BPB_BytsPerSec, BPB.BPB_BytsPerSec,
+                 FAT_Table.data() + byte / sizeof(uint32_t));
+    }
+    tot_block = BPB.BPB_TotSec32;
+    block_size = BPB.BPB_BytsPerSec;
+    sec_per_clus = BPB.BPB_SecPerClus;
+    clus_size = block_size * sec_per_clus;
+    data_begin = BPB.BPB_RsvdSecCnt + BPB.BPB_NumFATs * BPB.BPB_FATSz32;
+    count_of_cluster = (tot_block - data_begin) / sec_per_clus;
+    memset(&root_info, 0, sizeof(fat32::Entry_Info));
+    root_info.first_clus = get_root_clus();
+    root_info.info.st_dev = get_vol_id();
+    root_info.info.st_ino = root_info.first_clus;
+    root_info.info.st_mode = 0777 | S_IFDIR;
+    root_info.info.st_nlink = 2;
+    root_info.info.st_uid = 0;
+    root_info.info.st_gid = 0;
+    root_info.info.st_rdev = 0;
+    root_info.info.st_size = 0;
+    root_info.info.st_blksize = block_size;
+    root_info.info.st_blocks = 0;
+    auto first_clus = root_info.first_clus;
+    while (first_clus >= 2 && first_clus < count_of_cluster + 2)
+    {
+        ++(root_info.info.st_blocks);
+        first_clus = get_fat(first_clus);
+    }
+    root = open_file(nullptr, &root_info);
+    open_file_table.insert((uint64_t)root.get());
+}
 
 void dev_t::clear()
 {
@@ -305,8 +311,8 @@ void dev_t::clear()
             write_block(i + BPB.BPB_RsvdSecCnt, FAT_Table.data() + i * block_size / sizeof(uint32_t));
             write_block(i + BPB.BPB_RsvdSecCnt + BPB.BPB_FATSz32, FAT_Table.data() + i * block_size / sizeof(uint32_t));
         }
-        //save(root.get());
-        //flush();
+        save(root.get());
+        flush();
         cleared = true;
     }
 }

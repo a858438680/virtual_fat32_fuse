@@ -8,6 +8,7 @@
 #include <memory>
 #include <stdexcept>
 #include <stdint.h>
+#include <sys/stat.h>
 
 namespace fat32
 {
@@ -89,8 +90,7 @@ struct Entry_Info
     wchar_t name[256];
     char short_name[11];
     uint32_t first_clus;
-    //BY_HANDLE_FILE_INFORMATION info;
-    //bool isdir() const noexcept { return info.dwFileAttributes & 0x10; }
+    struct stat info;
 };
 
 typedef std::vector<uint32_t> file_alloc;
@@ -98,11 +98,6 @@ typedef std::vector<uint32_t> file_alloc;
 typedef std::vector<Entry_Info> dir_info;
 
 typedef std::vector<std::wstring> path;
-
-struct file_ref
-{
-    uint64_t fd;
-};
 
 struct file_node
 {
@@ -113,7 +108,6 @@ struct file_node
     file_node *parent;
     std::map<std::wstring, std::unique_ptr<file_node>> children;
     std::atomic<uint64_t> ref_count;
-    bool delete_on_close;
 };
 
 class file_error : public std::runtime_error
