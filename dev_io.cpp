@@ -296,25 +296,4 @@ void dev_t::clac_info()
     open_file_table.insert((uint64_t)root.get());
 }
 
-void dev_t::clear()
-{
-    if (!cleared)
-    {
-        write_block(0, &BPB);
-        fat32::BPB_t BPB_Backup;
-        memcpy(&BPB_Backup, &BPB, sizeof(BPB));
-        BPB_Backup.BPB_BkBootSec = 0;
-        write_block(0, &BPB_Backup);
-        write_block(BPB.BPB_FSInfo, &FSInfo);
-        for (uint32_t i = 0; i < BPB.BPB_FATSz32; ++i)
-        {
-            write_block(i + BPB.BPB_RsvdSecCnt, FAT_Table.data() + i * block_size / sizeof(uint32_t));
-            write_block(i + BPB.BPB_RsvdSecCnt + BPB.BPB_FATSz32, FAT_Table.data() + i * block_size / sizeof(uint32_t));
-        }
-        save(root.get());
-        flush();
-        cleared = true;
-    }
-}
-
 } // namespace dev_io

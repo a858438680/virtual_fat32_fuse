@@ -3,11 +3,12 @@ project(OS-Project)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_FLAGS "-D_FILE_OFFSET_BITS=64")
 
-add_executable(disk disk.cpp file.cpp dev_io.cpp)
-add_executable(format format.cpp file.cpp dev_io.cpp)
+add_executable(disk disk.cpp u16str.cpp file.cpp dev_io.cpp)
+add_executable(format format.cpp u16str.cpp file.cpp dev_io.cpp)
 
 set(LIBS "/usr/lib/libfuse.so")
 set(INC "/usr/include")
-target_link_libraries(dokan_disk PUBLIC ${LIBS})
-target_include_directories(dokan_disk PUBLIC ${INC})
+target_link_libraries(disk PUBLIC ${LIBS})
+target_include_directories(disk PUBLIC ${INC})

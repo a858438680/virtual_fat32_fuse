@@ -64,19 +64,18 @@ public:
 
     operator bool() const noexcept;
 
-    int stat(const fat32::path &path, struct stat *stbuf);
     int fstat(uint64_t fd, struct stat *stbuf);
+    int stat(const fat32::path &path, struct stat *stbuf);
     int access(const fat32::path &path);
-    int opendir(const fat32::path &path, uint64_t *fh);
     int readdir(uint64_t fd, fat32::dir_info &entries);
-    void closedir(uint64_t fd);
-    int open(const fat32::path &path, int flag, uint64_t *fh);
+    int open(const fat32::path &path, uint64_t *fh);
     void close(uint64_t fd);
-    int mknod(const fat32::path &path, mode_t mode);
-    int mkdir(const fat32::path &path, mode_t mode);
+    int mknod(const fat32::path &path);
+    int mkdir(const fat32::path &path);
     int unlink(const fat32::path &path);
     int rmdir(const fat32::path &path);
     int rename(const fat32::path &from, const fat32::path &to);
+    int ftruncate(uint64_t fd, off_t truncate);
     int truncate(const fat32::path &path, off_t offset);
     int read(uint64_t fd, int64_t offset, uint32_t len, void *buf);
     int write(uint64_t fd, int64_t offset, uint32_t len, const void *buf);
@@ -108,8 +107,8 @@ private:
     void extend(fat32::file_node *node, uint32_t clus_count);
     void shrink(fat32::file_node *node, uint32_t clus_count);
     void add_entry(fat32::file_node *node, fat32::Entry_Info *pinfo, int have_long, bool replace);
-    void remove_entry(fat32::file_node *node, std::wstring_view name);
-    void gen_short(std::wstring_view name, fat32::file_node *node, char *short_name);
+    void remove_entry(fat32::file_node *node, std::u16string_view name);
+    void gen_short(std::u16string_view name, fat32::file_node *node, char *short_name);
     int32_t DirEntry2EntryInfo(const fat32::DIR_Entry *pdir, fat32::Entry_Info *pinfo);
 
     int dev_img;
@@ -117,7 +116,7 @@ private:
     fat32::FSInfo_t FSInfo;
     std::vector<uint32_t> FAT_Table;
     std::set<uint64_t> open_file_table;
-    std::set<std::unique_ptr<fat32::file_node>> delete_file_table;
+    std::map<uint64_t, std::unique_ptr<fat32::file_node>> delete_file_table;
     std::unique_ptr<fat32::file_node> root;
     uint32_t tot_block;
     uint16_t block_size;

@@ -76,18 +76,18 @@ struct DIR_Entry
 struct LDIR_Entry
 {
     uint8_t LDIR_Ord;
-    wchar_t LDIR_Name1[5];
+    char16_t LDIR_Name1[5];
     uint8_t LDIR_Attr;
     uint8_t LDIR_Type;
     uint8_t LDIR_Chksum;
-    wchar_t LDIR_Name2[6];
+    char16_t LDIR_Name2[6];
     uint16_t LDIR_FstClusLO;
-    wchar_t LDIR_Name3[2];
+    char16_t LDIR_Name3[2];
 } __attribute__((packed));
 
 struct Entry_Info
 {
-    wchar_t name[256];
+    char16_t name[256];
     char short_name[11];
     uint32_t first_clus;
     struct stat info;
@@ -97,7 +97,7 @@ typedef std::vector<uint32_t> file_alloc;
 
 typedef std::vector<Entry_Info> dir_info;
 
-typedef std::vector<std::wstring> path;
+typedef std::vector<std::u16string> path;
 
 struct file_node
 {
@@ -106,7 +106,7 @@ struct file_node
     Entry_Info info;
     std::vector<DIR_Entry> entries;
     file_node *parent;
-    std::map<std::wstring, std::unique_ptr<file_node>> children;
+    std::map<std::u16string, std::unique_ptr<file_node>> children;
     std::atomic<uint64_t> ref_count;
 };
 
