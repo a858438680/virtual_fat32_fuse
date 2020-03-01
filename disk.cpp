@@ -10,6 +10,7 @@
 #include <iconv.h>
 #include <errno.h>
 #include "dev_io.h"
+#include "log.h"
 #include "iconvpp.hpp"
 
 std::mutex global_mtx;
@@ -31,23 +32,23 @@ fat32::path parse_path(std::string_view path)
 {
     fat32::path res;
     std::string buf;
-    int index = 0;
     for (auto c : path)
     {
         if (c == '/')
         {
-            index = 0;
             buf.clear();
         }
         else
         {
             buf.push_back(c);
-            if (path[1] == '/' || path[1] == '\0')
+            if (path[1] == '/')
             {
                 res.emplace_back(local2wide(buf));
             }
         }
     }
+    if (!buf.empty())
+        res.emplace_back(local2wide(buf));
     return res;
 }
 

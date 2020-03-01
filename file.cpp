@@ -4,6 +4,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include "dev_io.h"
+#include "log.h"
 #include "u16str.h"
 
 static const char this_folder[] = {0x2e, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20};
@@ -56,7 +57,7 @@ void EntryInfo2DirEntry(fat32::Entry_Info *pinfo, fat32::DIR_Entry *pentry, int 
         ldir[0].LDIR_Ord |= 0x40;
     }
     memcpy(pentry->DIR_Name, pinfo->short_name, sizeof(pinfo->short_name));
-    pentry->DIR_Attr = (S_ISREG(pinfo->info.st_mode & S_IFMT));
+    pentry->DIR_Attr = S_ISREG(pinfo->info.st_mode) ? 0x00 : 0x10;
     pentry->DIR_FstClusHI = ((pinfo->first_clus >> 16) & 0xffff);
     pentry->DIR_FstClusLO = (pinfo->first_clus & 0xffff);
     pentry->DIR_FileSize = pinfo->info.st_size;
@@ -77,7 +78,7 @@ void dev_t::gen_short(std::u16string_view name, fat32::file_node *node, char *sh
     memset(name_tmp, 0x20, sizeof(name_tmp));
     char *main_part = name_tmp;
     char *ext_part = name_tmp + 8;
-    auto last_dot = name.find_last_of(L'.');
+    auto last_dot = name.find_last_of(u'.');
     if (last_dot != std::u16string_view::npos && last_dot != name.length() - 1)
     {
         size_t index = 0;
@@ -489,7 +490,7 @@ int dev_t::mkdir(const fat32::path &path)
         info.first_clus = 0;
         info.info.st_dev = get_vol_id();
         info.info.st_ino = 0;
-        info.info.st_mode = 0777 | S_IFDIR;
+        info.info.st_mode = 0555 | S_IFDIR;
         info.info.st_nlink = 2;
         info.info.st_uid = 0;
         info.info.st_gid = 0;
@@ -547,7 +548,7 @@ int dev_t::unlink(const fat32::path &path)
         if (ret < 0)
             return ret;
         auto node = (fat32::file_node *)fd;
-        if (!S_ISREG(node->info.info.st_mode))
+        if (S_ISDIR(node->info.info.st_mode))
         {
             close(fd);
             return -EISDIR;
@@ -819,28 +820,25 @@ int dev_t::write(uint64_t fd, int64_t offset, uint32_t len, const void *buffer)
         }
         for (auto i = begin_clus; i < end_clus; ++i)
         {
-            int read = 0;
             uint32_t begin = 0, end = clus_size;
             if (i == begin_clus)
             {
                 begin = left_border % clus_size;
-                read = 1;
             }
             if (i == end_clus - 1)
             {
                 end = (right_border - 1) % clus_size + 1;
-                read = 1;
             }
             auto size = end - begin;
-            if (read)
+            if (size < clus_size)
             {
                 read_clus(p->alloc[i], buf.data());
-                memcpy(buf.data() + begin, (char *)buffer + i * clus_size + begin, size);
+                memcpy(buf.data() + begin, (char *)buffer + index, size);
                 write_clus(p->alloc[i], buf.data());
             }
             else
             {
-                write_clus(p->alloc[i], (char *)buffer + i * clus_size);
+                write_clus(p->alloc[i], (char *)buffer + index);
             }
             index += size;
         }
@@ -1225,7 +1223,7 @@ int32_t dev_t::DirEntry2EntryInfo(const fat32::DIR_Entry *pdir, fat32::Entry_Inf
             memcpy(tmp, ldir[count].LDIR_Name1, sizeof(ldir[count].LDIR_Name1));
             size_t len = u16nlen(tmp, 13);
             name_pos = 255 - len;
-            u16ncpy(name + name_pos, tmp, 13);
+            u16ncpy(name + name_pos, tmp, len);
             have_long_name = 1;
         }
         else
@@ -1252,7 +1250,7 @@ int32_t dev_t::DirEntry2EntryInfo(const fat32::DIR_Entry *pdir, fat32::Entry_Inf
         }
         if (pdir[count].DIR_Name[8] != 0x20)
         {
-            pinfo->name[index++] = L'.';
+            pinfo->name[index++] = u'.';
             for (int k = 8; k < 11 && (c = pdir[count].DIR_Name[k]) != 0x20; ++k)
             {
                 pinfo->name[index++] = c;
@@ -1263,7 +1261,7 @@ int32_t dev_t::DirEntry2EntryInfo(const fat32::DIR_Entry *pdir, fat32::Entry_Inf
     pinfo->first_clus = ((uint32_t)(pdir[count].DIR_FstClusHI) << 16) + pdir[count].DIR_FstClusLO;
     pinfo->info.st_dev = get_vol_id();
     pinfo->info.st_ino = pinfo->first_clus;
-    pinfo->info.st_mode = 0777 | ((pdir[count].DIR_Attr & 0x10) ? S_IFDIR : S_IFREG);
+    pinfo->info.st_mode = ((pdir[count].DIR_Attr & 0x10) ? (0555 | S_IFDIR) : (0777 | S_IFREG));
     pinfo->info.st_nlink = (pdir[count].DIR_Attr & 0x10) ? 2 : 1;
     pinfo->info.st_uid = 0;
     pinfo->info.st_gid = 0;
