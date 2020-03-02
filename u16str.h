@@ -2,6 +2,10 @@
 #define U16STR_H
 #include <stdlib.h>
 
+std::string wide2local(std::u16string_view str);
+
+std::u16string local2wide(std::string_view str);
+
 char16_t *u16memchr(const char16_t *s, char16_t c, size_t n);
 
 char16_t *u16memcpy(char16_t *s1, const char16_t *s2, size_t n);

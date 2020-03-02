@@ -320,29 +320,20 @@ int dev_t::open(const fat32::path &path, uint64_t *fh)
             {
                 if (S_ISDIR(last->info.info.st_mode))
                 {
-                    fat32::Entry_Info buf;
-                    size_t index = 0;
+                    fat32::dir_info entries;
+                    readdir((uint64_t)last, entries);
                     auto find = false;
-                    int32_t ret;
-                    while (index < last->entries.size() && (ret = DirEntry2EntryInfo(last->entries.data() + index, &buf)))
+                    for (const auto &e : entries)
                     {
-                        if (ret < 0)
+                        if (e.name == name)
                         {
-                            index -= ret;
-                        }
-                        else
-                        {
-                            if (name == buf.name)
-                            {
-                                auto ptr = open_file(last, &buf);
-                                auto temp = ptr.get();
-                                last->children.insert(std::make_pair(name, std::move(ptr)));
-                                open_file_table.insert((uint64_t)temp);
-                                last = temp;
-                                find = true;
-                                break;
-                            }
-                            index += ret;
+                            auto ptr = open_file(last, &e);
+                            auto temp = ptr.get();
+                            last->children.insert(std::make_pair(name, std::move(ptr)));
+                            open_file_table.insert((uint64_t)temp);
+                            last = temp;
+                            find = true;
+                            break;
                         }
                     }
                     if (!find)
@@ -396,11 +387,6 @@ int dev_t::mknod(const fat32::path &path)
         if (ret < 0)
             return ret;
         auto node = (fat32::file_node *)fd;
-        if (!S_ISDIR(node->info.info.st_mode))
-        {
-            close(fd);
-            return -ENOTDIR;
-        }
         fat32::dir_info entries;
         ret = readdir(fd, entries);
         if (ret < 0)
@@ -444,6 +430,7 @@ int dev_t::mknod(const fat32::path &path)
         info.info.st_atim.tv_sec = mktime(broken_time);
         info.info.st_atim.tv_nsec = 0;
         add_entry(node, &info, 1, false);
+        close(fd);
         return 0;
     }
 }
@@ -464,11 +451,6 @@ int dev_t::mkdir(const fat32::path &path)
         if (ret < 0)
             return ret;
         auto node = (fat32::file_node *)fd;
-        if (!S_ISDIR(node->info.info.st_mode))
-        {
-            close(fd);
-            return -ENOTDIR;
-        }
         fat32::dir_info entries;
         ret = readdir(fd, entries);
         if (ret < 0)
@@ -490,7 +472,7 @@ int dev_t::mkdir(const fat32::path &path)
         info.first_clus = 0;
         info.info.st_dev = get_vol_id();
         info.info.st_ino = 0;
-        info.info.st_mode = 0555 | S_IFDIR;
+        info.info.st_mode = 0777 | S_IFDIR;
         info.info.st_nlink = 2;
         info.info.st_uid = 0;
         info.info.st_gid = 0;
@@ -579,11 +561,6 @@ int dev_t::rmdir(const fat32::path &path)
         if (ret < 0)
             return ret;
         auto node = (fat32::file_node *)fd;
-        if (!S_ISDIR(node->info.info.st_mode))
-        {
-            close(fd);
-            return -ENOTDIR;
-        }
         fat32::dir_info entries;
         ret = readdir(fd, entries);
         if (ret < 0)
@@ -631,12 +608,6 @@ int dev_t::rename(const fat32::path &from, const fat32::path &to)
             return ret;
         }
         auto to_node = (fat32::file_node *)to_fd;
-        if (!S_ISDIR(to_node->info.info.st_mode))
-        {
-            close(to_fd);
-            close(fd);
-            return -ENOTDIR;
-        }
         fat32::dir_info entries;
         ret = readdir(to_fd, entries);
         if (ret < 0)
@@ -688,11 +659,14 @@ int dev_t::rename(const fat32::path &from, const fat32::path &to)
         }
         auto parent = node->parent;
         node->parent = to_node;
-        auto itr = parent->children.find(node->info.name);
+        u16cpy(node->info.name, to.back().c_str());
+        gen_short(to.back(), to_node, node->info.short_name);
         add_entry(to_node, &node->info, 1, true);
-        to_node->children.insert(std::make_pair(node->info.name, std::move(itr->second)));
+        auto itr = parent->children.find(from.back());
+        to_node->children.insert(std::make_pair(to.back(), std::move(itr->second)));
         parent->children.erase(itr);
-        remove_entry(parent, node->info.name);
+        remove_entry(parent, from.back());
+        clear_node(parent);
         close(to_fd);
         close(fd);
         return 0;
@@ -924,7 +898,7 @@ void dev_t::clear()
     }
 }
 
-std::unique_ptr<fat32::file_node> dev_t::open_file(fat32::file_node *parent, fat32::Entry_Info *pinfo)
+std::unique_ptr<fat32::file_node> dev_t::open_file(fat32::file_node *parent, const fat32::Entry_Info *pinfo)
 {
     auto res = std::make_unique<fat32::file_node>(parent);
     auto first_clus = pinfo->first_clus;
@@ -1261,7 +1235,7 @@ int32_t dev_t::DirEntry2EntryInfo(const fat32::DIR_Entry *pdir, fat32::Entry_Inf
     pinfo->first_clus = ((uint32_t)(pdir[count].DIR_FstClusHI) << 16) + pdir[count].DIR_FstClusLO;
     pinfo->info.st_dev = get_vol_id();
     pinfo->info.st_ino = pinfo->first_clus;
-    pinfo->info.st_mode = ((pdir[count].DIR_Attr & 0x10) ? (0555 | S_IFDIR) : (0777 | S_IFREG));
+    pinfo->info.st_mode = 0777 | ((pdir[count].DIR_Attr & 0x10) ? S_IFDIR : S_IFREG);
     pinfo->info.st_nlink = (pdir[count].DIR_Attr & 0x10) ? 2 : 1;
     pinfo->info.st_uid = 0;
     pinfo->info.st_gid = 0;

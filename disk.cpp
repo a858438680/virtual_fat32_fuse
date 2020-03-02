@@ -11,22 +11,9 @@
 #include <errno.h>
 #include "dev_io.h"
 #include "log.h"
-#include "iconvpp.hpp"
+#include "u16str.h"
 
 std::mutex global_mtx;
-
-std::string wide2local(std::u16string_view str)
-{
-    iconvpp::converter cnvt("UTF-8", "UTF-16LE", true);
-    return cnvt.convert(std::string_view((const char *)str.data(), str.length() * sizeof(char16_t)));
-}
-
-std::u16string local2wide(std::string_view str)
-{
-    iconvpp::converter cnvt("UTF-16LE", "UTF-8", true);
-    auto tmp = cnvt.convert(str);
-    return std::u16string((const char16_t *)tmp.data(), tmp.length() / sizeof(char16_t));
-}
 
 fat32::path parse_path(std::string_view path)
 {
@@ -36,15 +23,15 @@ fat32::path parse_path(std::string_view path)
     {
         if (c == '/')
         {
-            buf.clear();
+            if (!buf.empty())
+            {
+                res.emplace_back(local2wide(buf));
+                buf.clear();
+            }
         }
         else
         {
             buf.push_back(c);
-            if (path[1] == '/')
-            {
-                res.emplace_back(local2wide(buf));
-            }
         }
     }
     if (!buf.empty())

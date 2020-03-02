@@ -1,5 +1,20 @@
+#include <string>
 #include <string.h>
 #include "u16str.h"
+#include "iconvpp.hpp"
+
+std::string wide2local(std::u16string_view str)
+{
+    iconvpp::converter cnvt("UTF-8", "UTF-16LE", true);
+    return cnvt.convert(std::string_view((const char *)str.data(), str.length() * sizeof(char16_t)));
+}
+
+std::u16string local2wide(std::string_view str)
+{
+    iconvpp::converter cnvt("UTF-16LE", "UTF-8", true);
+    auto tmp = cnvt.convert(str);
+    return std::u16string((const char16_t *)tmp.data(), tmp.length() / sizeof(char16_t));
+}
 
 char16_t *u16memchr(const char16_t *s, char16_t c, size_t n)
 {
@@ -93,7 +108,7 @@ size_t u16len(const char16_t *s)
 
 size_t u16nlen(const char16_t *s, size_t maxlen)
 {
-    const char16_t *ret = u16memchr(s, L'\0', maxlen);
+    const char16_t *ret = u16memchr(s, u'\0', maxlen);
     if (ret)
         maxlen = ret - s;
     return maxlen;
@@ -108,7 +123,7 @@ char16_t *u16ncpy(char16_t *dest, const char16_t *src, size_t n)
 {
     size_t size = u16nlen(src, n);
     if (size != n)
-        u16memset(dest + size, L'\0', n - size);
+        u16memset(dest + size, u'\0', n - size);
     return u16memcpy(dest, src, size);
 }
 

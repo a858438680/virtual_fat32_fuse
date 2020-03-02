@@ -99,7 +99,7 @@ private:
     void format(uint32_t tot_block, uint16_t block_size);
     void clac_info();
 
-    std::unique_ptr<fat32::file_node> open_file(fat32::file_node *parent, fat32::Entry_Info *pinfo);
+    std::unique_ptr<fat32::file_node> open_file(fat32::file_node *parent, const fat32::Entry_Info *pinfo);
     void save(fat32::file_node *node);
     void clear_node(fat32::file_node *node);
     uint32_t next_free();
