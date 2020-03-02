@@ -305,20 +305,15 @@ int dev_t::open(const fat32::path &path, uint64_t *fh)
     {
         auto last = root.get();
         decltype(last->children.begin()) itr;
-        bool end = false;
         for (const auto &name : path)
         {
-            if (!end)
+            if (S_ISDIR(last->info.info.st_mode))
             {
-                end = (itr = last->children.find(name)) == last->children.end();
-            }
-            if (!end)
-            {
-                last = itr->second.get();
-            }
-            else
-            {
-                if (S_ISDIR(last->info.info.st_mode))
+                if ((itr = last->children.find(name)) != last->children.end())
+                {
+                    last = itr->second.get();
+                }
+                else
                 {
                     fat32::dir_info entries;
                     readdir((uint64_t)last, entries);
@@ -342,11 +337,11 @@ int dev_t::open(const fat32::path &path, uint64_t *fh)
                         return -ENOENT;
                     }
                 }
-                else
-                {
-                    clear_node(last);
-                    return -ENOTDIR;
-                }
+            }
+            else
+            {
+                clear_node(last);
+                return -ENOTDIR;
             }
         }
         last->ref_count.fetch_add(1, std::memory_order_relaxed);
@@ -1184,6 +1179,7 @@ int32_t dev_t::DirEntry2EntryInfo(const fat32::DIR_Entry *pdir, fat32::Entry_Inf
         return -count;
     }
     char16_t name[256];
+    name[255] = u'\0';
     int name_pos = 255;
     int have_long_name = 0;
     fat32::LDIR_Entry *ldir = (fat32::LDIR_Entry *)pdir;
