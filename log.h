@@ -2,12 +2,8 @@
 #define DOKAN_LOG_H
 #include <string>
 
-#define LOG_RETURN(func_name, ret_val)             \
-    log_msg(#func_name " return: " #ret_val "\n"); \
-    return (ret_val)
-
 #define log_struct(indent, st, field, format, ...) \
-    log_msg(indent "(" #st ")->" #field " = " format "\n", __VA_ARGS__(st->field))
+    log_msg(indent #st "->" #field " = " format "\n", __VA_ARGS__(st->field))
 
 #define log_int32(indent, name) log_msg(indent #name " = %d\n", name)
 
@@ -39,5 +35,11 @@ FILE *open_log_file(void);
 const char *set_log_name(const char *name);
 
 void log_msg(const char *format, ...);
+
+void log_fi (const struct fuse_file_info *fi);
+
+void log_stat(const struct stat *si);
+
+void log_statvfs(const struct statvfs *sv);
 
 #endif

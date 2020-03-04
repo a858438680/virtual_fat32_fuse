@@ -65,7 +65,11 @@ static int vfat_fgetattr(const char *path, struct stat *stbuf, fuse_file_info *f
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
-    return get_dev().fstat(fi->fh, stbuf);
+    log_fi(fi);
+    auto ret = get_dev().fstat(fi->fh, stbuf);
+    log_stat(stbuf);
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_getattr(const char *path, struct stat *stbuf)
@@ -73,7 +77,10 @@ static int vfat_getattr(const char *path, struct stat *stbuf)
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
-    return get_dev().stat(parse_path(path), stbuf);
+    auto ret = get_dev().stat(parse_path(path), stbuf);
+    log_stat(stbuf);
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_access(const char *path, int mask)
@@ -81,9 +88,12 @@ static int vfat_access(const char *path, int mask)
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
+    log_msg("    mask: %d\n", mask);
     if (mask == F_OK)
     {
-        return get_dev().access(parse_path(path));
+        auto ret = get_dev().access(parse_path(path));
+        log_msg("    ret: %d\n", ret);
+        return ret;
     }
     return 0;
 }
@@ -93,7 +103,10 @@ static int vfat_opendir(const char *path, struct fuse_file_info *fi)
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
-    return get_dev().open(parse_path(path), &fi->fh);
+    auto ret = get_dev().open(parse_path(path), &fi->fh);
+    log_fi(fi);
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, struct fuse_file_info *fi)
@@ -101,13 +114,18 @@ static int vfat_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
+    log_fi(fi);
     fat32::dir_info entries;
     auto ret = get_dev().readdir(fi->fh, entries);
     for (const auto &entry : entries)
     {
-        if (filler(buf, wide2local(entry.name).c_str(), &entry.info, 0))
+        auto entry_name = wide2local(entry.name);
+        log_msg("    entry name: %s\n", entry_name.c_str());
+        log_stat(&entry.info);
+        if (filler(buf, entry_name.c_str(), &entry.info, 0))
             break;
     }
+    log_msg("    ret: %d\n", ret);
     return ret;
 }
 
@@ -116,6 +134,7 @@ static int vfat_releasedir(const char *path, struct fuse_file_info *fi)
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
+    log_fi(fi);
     get_dev().close(fi->fh);
     return 0;
 }
@@ -125,7 +144,9 @@ static int vfat_mknod(const char *path, mode_t mode, dev_t rdev)
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
-    return get_dev().mknod(parse_path(path));
+    auto ret = get_dev().mknod(parse_path(path));
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_mkdir(const char *path, mode_t mode)
@@ -133,7 +154,9 @@ static int vfat_mkdir(const char *path, mode_t mode)
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
-    return get_dev().mkdir(parse_path(path));
+    auto ret = get_dev().mkdir(parse_path(path));
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_unlink(const char *path)
@@ -141,7 +164,9 @@ static int vfat_unlink(const char *path)
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
-    return get_dev().unlink(parse_path(path));
+    auto ret = get_dev().unlink(parse_path(path));
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_rmdir(const char *path)
@@ -149,7 +174,9 @@ static int vfat_rmdir(const char *path)
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
-    return get_dev().rmdir(parse_path(path));
+    auto ret = get_dev().rmdir(parse_path(path));
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_rename(const char *from, const char *to)
@@ -158,7 +185,9 @@ static int vfat_rename(const char *from, const char *to)
     log_info();
     log_msg("from: %s\n", from);
     log_msg("to: %s\n", to);
-    return get_dev().rename(parse_path(from), parse_path(to));
+    auto ret = get_dev().rename(parse_path(from), parse_path(to));
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_chmod(const char *path, mode_t mode)
@@ -182,7 +211,11 @@ static int vfat_ftruncate(const char *path, off_t size, fuse_file_info *fi)
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
-    return get_dev().ftruncate(fi->fh, size);
+    log_msg("    size: %l\n", size);
+    log_fi(fi);
+    auto ret = get_dev().ftruncate(fi->fh, size);
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_truncate(const char *path, off_t size)
@@ -190,7 +223,10 @@ static int vfat_truncate(const char *path, off_t size)
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
-    return get_dev().truncate(parse_path(path), size);
+    log_msg("    size: %l\n", size);
+    auto ret = get_dev().truncate(parse_path(path), size);
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_open(const char *path, struct fuse_file_info *fi)
@@ -198,7 +234,10 @@ static int vfat_open(const char *path, struct fuse_file_info *fi)
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
-    return get_dev().open(parse_path(path), &fi->fh);
+    auto ret = get_dev().open(parse_path(path), &fi->fh);
+    log_fi(fi);
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_read(const char *path, char *buf, size_t size, off_t offset,
@@ -207,7 +246,12 @@ static int vfat_read(const char *path, char *buf, size_t size, off_t offset,
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
-    return get_dev().read(fi->fh, offset, size, buf);
+    log_msg("    size: %lu\n", size);
+    log_msg("    offset: %l\n", offset);
+    log_fi(fi);
+    auto ret = get_dev().read(fi->fh, offset, size, buf);
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_write(const char *path, const char *buf, size_t size,
@@ -216,7 +260,12 @@ static int vfat_write(const char *path, const char *buf, size_t size,
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
-    return get_dev().write(fi->fh, offset, size, buf);
+    log_msg("    size: %lu\n", size);
+    log_msg("    offset: %l\n", offset);
+    log_fi(fi);
+    auto ret = get_dev().write(fi->fh, offset, size, buf);
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_statfs(const char *path, struct statvfs *stbuf)
@@ -224,7 +273,10 @@ static int vfat_statfs(const char *path, struct statvfs *stbuf)
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
-    return get_dev().statfs(stbuf);
+    auto ret = get_dev().statfs(stbuf);
+    log_statvfs(stbuf);
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_utimens(const char *path, const struct timespec tv[2])
@@ -232,7 +284,9 @@ static int vfat_utimens(const char *path, const struct timespec tv[2])
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
-    return get_dev().utimens(parse_path(path), tv);
+    auto ret = get_dev().utimens(parse_path(path), tv);
+    log_msg("    ret: %d\n", ret);
+    return ret;
 }
 
 static int vfat_release(const char *path, struct fuse_file_info *fi)
@@ -240,15 +294,17 @@ static int vfat_release(const char *path, struct fuse_file_info *fi)
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
+    log_fi(fi);
     get_dev().close(fi->fh);
     return 0;
 }
 
-static int vfat_fsync(const char *path, int, struct fuse_file_info *)
+static int vfat_fsync(const char *path, int, struct fuse_file_info *fi)
 {
     std::lock_guard<std::mutex> g(global_mtx);
     log_info();
     log_msg("    path: %s\n", path);
+    log_fi(fi);
     get_dev().flush();
     return 0;
 }
