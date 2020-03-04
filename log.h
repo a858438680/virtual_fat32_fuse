@@ -21,6 +21,21 @@
 
 #define log_pointer(indent, name) log_msg(indent #name " = %p\n", name)
 
+#define log_info()                                                                  \
+    do                                                                              \
+    {                                                                               \
+        timespec tp;                                                                \
+        clock_gettime(CLOCK_REALTIME, &tp);                                         \
+        tm broken_time;                                                             \
+        localtime_r(&tp.tv_sec, &broken_time);                                      \
+        char time_str[40];                                                          \
+        strftime(time_str, sizeof(time_str), "time: %F %T.%%09ld\n", &broken_time); \
+        log_msg("in function %s at line %d, ", __FUNCTION__, __LINE__);             \
+        log_msg(time_str, tp.tv_nsec);                                              \
+    } while (0)
+
+FILE *open_log_file(void);
+
 const char *set_log_name(const char *name);
 
 void log_msg(const char *format, ...);

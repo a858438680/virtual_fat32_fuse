@@ -922,7 +922,7 @@ void dev_t::save(fat32::file_node *node)
     {
         if (S_ISDIR(node->info.info.st_mode))
         {
-            if (node->parent)
+            if (node->info.first_clus != get_root_clus())
             {
                 fat32::Entry_Info tmp_info;
                 memcpy(&tmp_info, &node->info, sizeof(fat32::Entry_Info));
